@@ -1,0 +1,12 @@
+# PlatformIO / ESP-IDF build-uitvoer
+firmware-esp32/.pio/
+firmware-esp32/sdkconfig
+firmware-esp32/sdkconfig.old
+firmware-esp32/sdkconfig.*.old
+firmware-esp32/sdkconfig.ttgo-esp32
+firmware-esp32/managed_components/
+firmware-esp32/dependencies.lock
+
+# Logs en Python-cache
+*.log
+__pycache__/
