@@ -67,10 +67,11 @@ class Output:
         (winput.mouse_down if down else winput.mouse_up)("left")
 
     def ev_tap(self, fingers, x_mm, y_mm):
+        if fingers == 1 and self.cfg["numpad"].get("calibrate"):
+            log.info("KALIBRATIE tik op x=%.1f mm y=%.1f mm -> cel %s toets %s", x_mm, y_mm,
+                     self.numpad.cell(x_mm, y_mm), self.numpad.key_at(x_mm, y_mm))
         if self.numpad_on and fingers == 1:
             key = self.numpad.key_at(x_mm, y_mm)
-            if self.cfg["numpad"].get("calibrate"):
-                log.info("numpad-tik op x=%.1f mm y=%.1f mm -> cel %s toets %s", x_mm, y_mm, self.numpad.cell(x_mm, y_mm), key)
             if key:
                 winput.send_chord(key)
             return

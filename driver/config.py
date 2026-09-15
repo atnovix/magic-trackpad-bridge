@@ -63,8 +63,8 @@ DEFAULTS = {
         },
         "fusion360.exe": {
             "scroll": {"type": "drag", "button": "middle", "gain": 12.0, "natural": False},
-            "pinch": {"type": "wheel", "gain": 50.0, "modifiers": [], "invert": False},
-            "rotate": {"type": "drag", "button": "middle", "modifiers": ["shift"], "axis": "x", "gain": 4.0, "invert": False},
+            "pinch": {"type": "wheel", "gain": 50.0, "modifiers": [], "invert": True},
+            "rotate": {"type": "drag", "button": "middle", "modifiers": ["shift"], "axis": "x", "gain": 4.0, "invert": True},
         },
     },
 
