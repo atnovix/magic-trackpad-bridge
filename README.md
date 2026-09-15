@@ -38,7 +38,8 @@ draaien = orbit (Shift + middelste knop). Profielen, gains en toetscombinaties s
 `config.json` in de projectmap (tray-menu > Config openen, daarna Config herladen). Andere programma's
 krijgen een eigen profiel door hun exe-naam als sleutel onder `profiles` te zetten.
 
-**Numpad-modus** (Mobee NUM20-folie): aan/uit met een vier-vinger-tik of het schuifknopje rechtsboven op de folie.
+**Numpad-modus** (Mobee NUM20-folie): aan met een vier-vinger-tik of door het schuifknopje rechtsboven op de folie ~0,7 s
+ingedrukt te houden; uit met een tik op datzelfde knopje of weer vier vingers. Een fysieke klik typt in numpad-modus de toets onder de vinger.
 Het raster (7 kolommen x 6 rijen, `numpad.rows`) is gekalibreerd op de folie: F13-F17, raster-icoon = taakweergave,
 schuifknop = terug naar muis; lege toets, home, page up, clear (= backspace), = / *; del, end, page down, 7 8 9 -;
 4 5 6 +; pijl omhoog, 1 2 3 enter; pijlen links/omlaag/rechts, 0 . enter. Klopt een toets niet: zet in het tray-menu

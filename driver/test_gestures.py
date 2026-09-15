@@ -134,6 +134,24 @@ def test_two_to_one_no_jump():
     assert "pointer_move" not in rec.names(), rec.names()
 
 
+def test_hold():
+    rec = run([(0, [touch(1, 120, 5)])] * 90 + [(0, [])])
+    n = rec.names()
+    assert "hold" in n and "tap" not in n, n
+
+
+def test_numpad_click_types_key():
+    rec = Rec()
+    eng = GestureEngine(config.DEFAULTS, rec)
+    eng.numpad = True
+    t = 0.0
+    for btn in [0, 0, 1, 1, 1, 0, 0]:
+        eng.feed(Frame(t, btn, 0, [touch(1, 60, 50)])); t += 0.01
+    eng.feed(Frame(t, 0, 0, []))
+    n = rec.names()
+    assert "button" not in n and n.count("tap") == 1, n
+
+
 def test_parse_line():
     fr = Frame.parse("F 1 123 2 3,-1187,373,4,83,102,6,0 4,-147,-122,4,64,77,5,0", 0.0)
     assert fr.btn == 1 and len(fr.touches) == 2

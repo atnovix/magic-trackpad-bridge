@@ -9,6 +9,7 @@ De engine weet niets van Windows; hij roept `emit(naam, **velden)` aan. Gebeurte
   pinch_begin()  / pinch(d_mm)                 / pinch_end()
   rotate_begin() / rotate(d_deg)               / rotate_end()
   swipe(fingers, direction)                    3/4-vingerveeg: left/right/up/down
+  hold(x_mm, y_mm)                             één vinger lang stil ingedrukt (numpad-schakelaar)
   session_begin(fingers) / session_end()       eerste vinger erop / laatste vinger eraf
 
 Coördinaten in millimeter, met (0,0) linksboven op het trackpad; y groeit naar de gebruiker toe.
@@ -137,12 +138,27 @@ class GestureEngine:
 
         # fysieke klik
         if fr.btn and self.btn_down is None:
-            name = c["tap"]["button_by_fingers"].get(str(max(n, 1)), "left")
-            self.btn_down = name
-            self.emit("button", name=name, down=True)
+            if self.numpad and n >= 1:
+                # in numpad-modus is de klik een toetsaanslag op de plek van de vinger, geen muisknop
+                first = next(iter(self.touches.values()))
+                self.btn_down = "numpad"
+                s["fired"] = True
+                self.emit("tap", fingers=1, x_mm=first.x, y_mm=first.y)
+            else:
+                name = c["tap"]["button_by_fingers"].get(str(max(n, 1)), "left")
+                self.btn_down = name
+                self.emit("button", name=name, down=True)
         elif not fr.btn and self.btn_down is not None:
-            self.emit("button", name=self.btn_down, down=False)
+            if self.btn_down != "numpad":
+                self.emit("button", name=self.btn_down, down=False)
             self.btn_down = None
+
+        # lang stil indrukken met één vinger (bijv. numpad-schakelaar op de folie)
+        if (s is not None and n == 1 and not s["fired"] and not self.drag and self.btn_down is None
+                and s["moved"] < c["tap"].get("hold_move_mm", 3.0)
+                and fr.t - s["start"] > c["tap"].get("hold_ms", 700) / 1000.0):
+            s["fired"] = True
+            self.emit("hold", x_mm=s["x0"], y_mm=s["y0"])
 
         if s is not None and n > 0:
             s["moved"] = max(s["moved"], max(t.moved for t in self.touches.values()))

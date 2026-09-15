@@ -83,6 +83,11 @@ class Output:
         action = self.cfg["tap"]["actions"].get(str(fingers), "none")
         self._run_action(action)
 
+    def ev_hold(self, x_mm, y_mm):
+        # lang indrukken op de numpad-schakelaar van de folie zet de numpad-modus aan (of uit)
+        if self.numpad.key_at(x_mm, y_mm) == "numpad_toggle":
+            self._run_action("numpad_toggle")
+
     def _run_action(self, action):
         if not action or action == "none":
             return
