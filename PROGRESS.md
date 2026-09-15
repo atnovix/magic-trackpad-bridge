@@ -14,7 +14,10 @@ Stand: dinsdag 15 september 2026, 22:00.
   scrollen (natural, traagheid), pinch-zoom, draaien, 3/4-vingervegen, per-programma-profielen (Fusion 360: pannen,
   zoom, orbit), numpad-modus met kalibratie, tray-icoon met autostart. Gesture-engine is hardwareloos getest
   (`driver/test_gestures.py`, 15 tests). In de praktijk getest: muis, Fusion-gestures en numpad werken.
-- **Statusvenster en tray (15-09-2026 avond):** linksklik op het tray-icoon opent een venster met status (poort, trackpad,
+- **Flyout (driver/flyout.py):** linksklik op het tray-icoon opent een randloos paneel in Windows 11-stijl bij het icoon
+  (thema en accentkleur uit het register, afgeronde hoeken via transparante kleur, tegels, schakelaars, schuifregelaars,
+  sluit bij klik ernaast). "Meer instellingen" opent het uitgebreide venster.
+- **Statusvenster en tray (15-09-2026 avond):** menu "Meer instellingen..." opent een venster met status (poort, trackpad,
   accu, modus, frames, profiel), modusknoppen en instellingen; icoon groen/blauw/oranje/grijs per toestand. Autostart
   bij aanmelden staat aan (HKCU Run, pythonw-alias in WindowsApps). Eén exemplaar tegelijk (mutex).
 

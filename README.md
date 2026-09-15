@@ -34,8 +34,11 @@ Windows ziet het trackpad zelf niet meer (de ESP32 is de Bluetooth-host), dus de
 | 4 | tik = numpad-modus aan/uit; veeg links/rechts = virtueel bureaublad wisselen |
 
 **Tray-icoon**: groen = trackpad-modus, blauw met toetsen = numpad-modus, oranje = wacht op het trackpad, grijs = geen
-seriële poort. Linksklik opent het statusvenster (verbinding, accu, modus, frames, profiel) met de instellingen
-(cursorsnelheid, scrollen, tikken, Fusion-gevoeligheid en -richting, autostart). Rechtsklik geeft een kort menu.
+seriële poort. Linksklik opent een flyout in Windows 11-stijl bij het icoon (zoals het wifi-paneel): status en accu,
+tegels voor trackpad/numpad/actief, schuifregelaars voor cursor- en scrollsnelheid, schakelaars voor natuurlijk
+scrollen, tikken en de Fusion-richtingen, en autostart. Het paneel volgt het lichte/donkere thema en de accentkleur
+van Windows en sluit bij een klik ernaast. "Meer instellingen" opent het uitgebreide venster (`driver/ui.py`).
+Rechtsklik geeft een kort menu.
 De driver draait als één exemplaar (mutex), zonder console, en herstelt zelf bij een weggevallen poort.
 
 Profiel **Fusion 360** (`fusion360.exe`): twee vingers schuiven = pannen (middelste knop slepen), knijpen = zoom (wiel),

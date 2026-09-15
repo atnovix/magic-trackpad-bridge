@@ -104,7 +104,8 @@ class Driver:
         self._rate_t = time.monotonic()
         self._rate_n = 0
         self.icon = None
-        self.on_open_window = None       # callback vanuit het tray-icoon (linksklik / menu)
+        self.on_open_window = None       # callback vanuit het tray-icoon (linksklik / menu): flyout
+        self.on_open_settings = None     # uitgebreid instellingenvenster
         self.on_quit = None
         self._stop = threading.Event()
 
@@ -275,8 +276,13 @@ class Driver:
             if self.on_open_window:
                 self.on_open_window()
 
+        def open_settings(icon=None, item=None):
+            if self.on_open_settings:
+                self.on_open_settings()
+
         menu = pystray.Menu(
             Item("Openen", open_window, default=True),
+            Item("Meer instellingen...", open_settings),
             pystray.Menu.SEPARATOR,
             Item("Trackpad-modus", lambda i, it: self.set_numpad(False), checked=lambda i: not self.output.numpad_on, radio=True),
             Item("Numpad-modus", lambda i, it: self.set_numpad(True), checked=lambda i: self.output.numpad_on, radio=True),
@@ -316,6 +322,7 @@ def main():
     import tkinter as tk
     from tkinter import ttk
     from ui import StatusWindow
+    from flyout import Flyout
 
     root = tk.Tk()
     root.withdraw()
@@ -324,10 +331,15 @@ def main():
     except Exception:
         pass
     win = StatusWindow(root, drv)
-    drv.on_open_window = lambda: root.after(0, win.show)     # vanuit de tray-thread naar de Tk-thread
+    fly = Flyout(root, drv, on_more=win.show)
+    drv.on_open_window = lambda: root.after(0, fly.show)     # vanuit de tray-thread naar de Tk-thread
+    drv.on_open_settings = lambda: root.after(0, win.show)
     drv.on_quit = lambda: root.after(0, root.destroy)
     drv.start_tray()
     if "--show" in sys.argv:
+        fly.autohide = "--keep" not in sys.argv      # --keep: paneel open laten (voor schermafbeeldingen)
+        root.after(200, fly.show)
+    if "--settings" in sys.argv:
         root.after(200, win.show)
     root.mainloop()
     drv.stop()
