@@ -13,7 +13,10 @@ Stand: dinsdag 15 september 2026, 22:00.
 - **Driver op de laptop (`driver/`, 15-09-2026):** cursor met versnelling, tik/tik-tik-slepen/fysieke klik, 2-vinger
   scrollen (natural, traagheid), pinch-zoom, draaien, 3/4-vingervegen, per-programma-profielen (Fusion 360: pannen,
   zoom, orbit), numpad-modus met kalibratie, tray-icoon met autostart. Gesture-engine is hardwareloos getest
-  (`driver/test_gestures.py`, 13 tests). Op de echte hardware nog te tunen: gains, drempels, NUM20-raster.
+  (`driver/test_gestures.py`, 15 tests). In de praktijk getest: muis, Fusion-gestures en numpad werken.
+- **Statusvenster en tray (15-09-2026 avond):** linksklik op het tray-icoon opent een venster met status (poort, trackpad,
+  accu, modus, frames, profiel), modusknoppen en instellingen; icoon groen/blauw/oranje/grijs per toestand. Autostart
+  bij aanmelden staat aan (HKCU Run, pythonw-alias in WindowsApps). Eén exemplaar tegelijk (mutex).
 
 ## Analyse van de fout van 6 september (v2, `tools/bridge.log`)
 

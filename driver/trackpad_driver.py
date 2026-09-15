@@ -42,9 +42,13 @@ def setup_logging(console):
 
 # ---------------------------------------------------------------------- autostart (HKCU\...\Run)
 def _pythonw():
-    exe = sys.executable
-    w = os.path.join(os.path.dirname(exe), "pythonw.exe")
-    return w if os.path.exists(w) else exe
+    """pythonw zonder console. Bij de Store-Python de vaste alias in WindowsApps gebruiken: het pad van
+    sys.executable bevat het versienummer en breekt bij elke update."""
+    alias = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "WindowsApps", "pythonw.exe")
+    if "WindowsApps" in sys.executable and os.path.exists(alias):
+        return alias
+    w = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+    return w if os.path.exists(w) else sys.executable
 
 
 def autostart_command():
@@ -74,6 +78,13 @@ def set_autostart(on):
     log.info("autostart %s", "aan" if on else "uit")
 
 
+def single_instance():
+    """True als dit de enige draaiende driver is (Windows-mutex); een tweede exemplaar zou om COM3 vechten."""
+    import ctypes
+    h = ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\MagicTrackpadBridgeDriver")
+    return h != 0 and ctypes.windll.kernel32.GetLastError() != 183   # ERROR_ALREADY_EXISTS
+
+
 # ---------------------------------------------------------------------- de driver zelf
 class Driver:
     def __init__(self, cfg):
@@ -89,7 +100,12 @@ class Driver:
         self.trackpad_connected = False
         self.battery = "?"
         self.frames = 0
+        self.frame_rate = 0.0
+        self._rate_t = time.monotonic()
+        self._rate_n = 0
         self.icon = None
+        self.on_open_window = None       # callback vanuit het tray-icoon (linksklik / menu)
+        self.on_quit = None
         self._stop = threading.Event()
 
     # -- callbacks vanuit de seriële thread
@@ -110,28 +126,40 @@ class Driver:
         self.engine.numpad = on
         self._refresh_icon()
 
-    # -- verwerkingslus (eigen thread)
+    # -- verwerkingslus (eigen thread); een fout in één frame mag de driver nooit stoppen
     def loop(self):
         while not self._stop.is_set():
             try:
-                t, s = self.lines.get(timeout=0.005)
-            except queue.Empty:
-                self.output.tick(time.monotonic())
-                continue
-            if s.startswith("F "):
-                self.frames += 1
-                if self.enabled:
-                    fr = Frame.parse(s, t)
-                    if fr is not None:
-                        self.engine.feed(fr)
-            elif s.startswith("S "):
-                self._status_line(s)
-            elif s.startswith("B "):
-                self.battery = s[2:].strip() + "%"
-                self._refresh_icon()
-            elif s.startswith(("W (", "E (")):
-                log.warning("esp32: %s", s)
+                self._loop_once()
+            except Exception:
+                log.exception("fout in verwerkingslus")
+                time.sleep(0.1)
+
+    def _loop_once(self):
+        try:
+            t, s = self.lines.get(timeout=0.005)
+        except queue.Empty:
             self.output.tick(time.monotonic())
+            return
+        if s.startswith("F "):
+            self.frames += 1
+            self._rate_n += 1
+            now = time.monotonic()
+            if now - self._rate_t >= 1.0:
+                self.frame_rate = self._rate_n / (now - self._rate_t)
+                self._rate_t, self._rate_n = now, 0
+            if self.enabled:
+                fr = Frame.parse(s, t)
+                if fr is not None:
+                    self.engine.feed(fr)
+        elif s.startswith("S "):
+            self._status_line(s)
+        elif s.startswith("B "):
+            self.battery = s[2:].strip() + " %"
+            self._refresh_icon()
+        elif s.startswith(("W (", "E (")):
+            log.warning("esp32: %s", s)
+        self.output.tick(time.monotonic())
 
     def _status_line(self, s):
         body = s[2:]
@@ -141,6 +169,7 @@ class Driver:
             self._refresh_icon()
         elif body.startswith("disconnected"):
             self.trackpad_connected = False
+            self.frame_rate = 0.0
             log.info("trackpad verbroken")
             self._refresh_icon()
         elif body.startswith("gap"):
@@ -157,6 +186,19 @@ class Driver:
         self._stop.set()
         self.reader.stop()
 
+    def quit(self):
+        self.stop()
+        if self.icon is not None:
+            try:
+                self.icon.stop()
+            except Exception:
+                pass
+        if self.on_quit:
+            self.on_quit()
+
+    def request_battery(self):
+        self.reader.send("b")
+
     def reload_config(self):
         try:
             cfg = config.load()
@@ -170,105 +212,95 @@ class Driver:
         log.info("config herladen")
 
     def set_numpad(self, on):
-        self.output.set_numpad(on)
+        if on != self.output.numpad_on:
+            self.output.set_numpad(on)
         self.engine.numpad = on
         self._refresh_icon()
 
     def set_calibrate(self, on):
         self.cfg["numpad"]["calibrate"] = bool(on)
         self.engine.lenient_tap = bool(on)
-        log.info("numpad-kalibratie %s (tik op de folie en kijk in het log)", "aan" if on else "uit")
 
-    # -- tray
-    def _icon_image(self):
+    def set_enabled(self, on):
+        self.enabled = bool(on)
+        log.info("driver %s", "actief" if self.enabled else "uit")
+        self._refresh_icon()
+
+    autostart_enabled = staticmethod(autostart_enabled)
+    set_autostart = staticmethod(set_autostart)
+
+    # -- tray-icoon: groen = trackpad, blauw met toetsen = numpad, oranje = wacht op trackpad, grijs = geen poort
+    def icon_image(self):
         from PIL import Image, ImageDraw
+        numpad = self.output.numpad_on
         if not self.port_open:
-            color = (140, 140, 140)
+            color = (150, 150, 150)
         elif not self.trackpad_connected:
-            color = (230, 160, 40)
-        elif self.output.numpad_on:
-            color = (70, 130, 230)
+            color = (235, 160, 40)
+        elif numpad:
+            color = (55, 120, 230)
         else:
-            color = (60, 180, 90)
+            color = (50, 175, 90)
         img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
-        d.rounded_rectangle((4, 10, 60, 54), radius=10, fill=color)
-        d.rounded_rectangle((12, 18, 52, 46), radius=6, outline=(255, 255, 255), width=3)
-        if self.output.numpad_on:
-            for x in (22, 32, 42):
-                for y in (25, 32, 39):
-                    d.ellipse((x - 2, y - 2, x + 2, y + 2), fill=(255, 255, 255))
+        d.rounded_rectangle((2, 6, 62, 58), radius=12, fill=color)
+        white = (255, 255, 255)
+        if numpad:
+            for x in (16, 32, 48):
+                for y in (19, 32, 45):
+                    d.rounded_rectangle((x - 5, y - 5, x + 5, y + 5), radius=2, fill=white)
+        else:
+            d.rounded_rectangle((11, 15, 53, 49), radius=6, outline=white, width=3)
+            d.ellipse((26, 26, 38, 38), fill=white)
         if not self.enabled:
-            d.line((8, 8, 56, 56), fill=(220, 50, 50), width=6)
+            d.line((10, 10, 54, 54), fill=(225, 45, 45), width=7)
         return img
 
     def _refresh_icon(self):
         if self.icon is None:
             return
         try:
-            self.icon.icon = self._icon_image()
+            self.icon.icon = self.icon_image()
             state = "geen poort" if not self.port_open else ("wacht op trackpad" if not self.trackpad_connected else "verbonden")
             self.icon.title = f"Magic Trackpad: {state}, accu {self.battery}" + (", numpad" if self.output.numpad_on else "")
         except Exception:
             log.exception("tray-icoon bijwerken")
 
-    def run_tray(self):
+    def start_tray(self):
+        """Tray-icoon in een eigen thread; linksklik of 'Openen' opent het statusvenster."""
         import pystray
         from pystray import MenuItem as Item
 
-        def toggle_enabled(icon, item):
-            self.enabled = not self.enabled
-            log.info("driver %s", "actief" if self.enabled else "uit")
-            self._refresh_icon()
-
-        def toggle_numpad(icon, item):
-            self.set_numpad(not self.output.numpad_on)
-
-        def toggle_calibrate(icon, item):
-            self.set_calibrate(not self.cfg["numpad"].get("calibrate"))
-
-        def toggle_autostart(icon, item):
-            set_autostart(not autostart_enabled())
-
-        def open_config(icon, item):
-            if not os.path.exists(config.CONFIG_PATH):
-                config.save(self.cfg)
-            os.startfile(config.CONFIG_PATH)
-
-        def open_log(icon, item):
-            os.startfile(config.LOG_PATH)
-
-        def open_visualizer(icon, item):
-            viz = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools", "visualizer.py")
-            self.reader.stop()
-            subprocess.Popen([sys.executable, viz, self.cfg["serial"]["port"]])
-
-        def quit_(icon, item):
-            self.stop()
-            icon.stop()
+        def open_window(icon=None, item=None):
+            if self.on_open_window:
+                self.on_open_window()
 
         menu = pystray.Menu(
-            Item("Actief", toggle_enabled, checked=lambda i: self.enabled),
-            Item("Numpad-modus", toggle_numpad, checked=lambda i: self.output.numpad_on),
-            Item("Numpad-kalibratie (log)", toggle_calibrate, checked=lambda i: bool(self.cfg["numpad"].get("calibrate"))),
+            Item("Openen", open_window, default=True),
             pystray.Menu.SEPARATOR,
-            Item("Autostart bij aanmelden", toggle_autostart, checked=lambda i: autostart_enabled()),
-            Item("Config openen", open_config),
-            Item("Config herladen", lambda i, it: self.reload_config()),
-            Item("Log openen", open_log),
+            Item("Trackpad-modus", lambda i, it: self.set_numpad(False), checked=lambda i: not self.output.numpad_on, radio=True),
+            Item("Numpad-modus", lambda i, it: self.set_numpad(True), checked=lambda i: self.output.numpad_on, radio=True),
+            Item("Driver actief", lambda i, it: self.set_enabled(not self.enabled), checked=lambda i: self.enabled),
             pystray.Menu.SEPARATOR,
-            Item("Herverbinden", lambda i, it: self.reader.reconnect()),
-            Item("Visualizer starten (stopt de driver)", open_visualizer),
-            Item("Afsluiten", quit_),
+            Item("Opnieuw verbinden", lambda i, it: self.reader.reconnect()),
+            Item("Afsluiten", lambda i, it: self.quit()),
         )
-        self.icon = pystray.Icon("MagicTrackpadBridge", self._icon_image(), "Magic Trackpad", menu)
+        self.icon = pystray.Icon("MagicTrackpadBridge", self.icon_image(), "Magic Trackpad", menu)
         self._refresh_icon()
-        self.icon.run()
+        self.icon.run_detached()
 
 
 def main():
     console = "--console" in sys.argv
     setup_logging(console)
+    if not single_instance():
+        log.warning("er draait al een driver; deze stopt")
+        return
+    try:
+        import ctypes
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)     # scherpe tekst in het venster op hoge-DPI-schermen
+    except Exception:
+        pass
     cfg = config.load()
     log.info("driver start; config %s", config.CONFIG_PATH)
     drv = Driver(cfg)
@@ -279,8 +311,26 @@ def main():
                 time.sleep(1)
         except KeyboardInterrupt:
             drv.stop()
-    else:
-        drv.run_tray()
+        return
+
+    import tkinter as tk
+    from tkinter import ttk
+    from ui import StatusWindow
+
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        ttk.Style(root).theme_use("vista")
+    except Exception:
+        pass
+    win = StatusWindow(root, drv)
+    drv.on_open_window = lambda: root.after(0, win.show)     # vanuit de tray-thread naar de Tk-thread
+    drv.on_quit = lambda: root.after(0, root.destroy)
+    drv.start_tray()
+    if "--show" in sys.argv:
+        root.after(200, win.show)
+    root.mainloop()
+    drv.stop()
     log.info("driver gestopt")
 
 
