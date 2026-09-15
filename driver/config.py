@@ -1,4 +1,4 @@
-"""Instellingen van de trackpad-driver: standaardwaarden, laden/bewaren als JSON in %APPDATA%.
+"""Instellingen van de trackpad-driver: standaardwaarden, laden/bewaren als JSON in de projectmap.
 
 Alle afstanden op het trackpad staan in millimeters (het trackpad meldt ~46,7 eenheden per mm).
 Gains staan per millimeter vingerbeweging, zodat ze intuïtief te tunen zijn.
@@ -7,7 +7,9 @@ import copy
 import json
 import os
 
-APP_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "MagicTrackpadBridge")
+# Config en log staan in de projectmap (naast driver/), niet in %APPDATA%: de Python uit de Microsoft Store
+# leidt schrijfacties naar AppData\Roaming om naar een verborgen pakketmap (LocalCache), en dan vindt niemand ze terug.
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(APP_DIR, "config.json")
 LOG_PATH = os.path.join(APP_DIR, "driver.log")
 

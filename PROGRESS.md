@@ -49,7 +49,7 @@ Twee losse problemen:
 ## Volgende stappen
 
 1. Driver in de praktijk tunen: `python driver	rackpad_driver.py --console`, cursorsnelheid (`pointer`), tikdrempels,
-   scroll/pinch/rotate-drempels en de Fusion-gains in `%APPDATA%\MagicTrackpadBridge\config.json`.
+   scroll/pinch/rotate-drempels en de Fusion-gains in `config.json` in de projectmap.
 2. NUM20-raster kalibreren (tray > Numpad-kalibratie, tikken, log lezen, `numpad.rows`/`x_mm`/`y_mm` aanpassen).
 3. Wensen daarna: palm-/duimonderdrukking verfijnen, gesture voor Fusion "kijk van voren" e.d., eventueel een
    Pi Pico W zodat het bordje zich als echt Precision Touchpad kan aanmelden (niet nodig voor Fusion-gestures).

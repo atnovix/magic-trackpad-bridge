@@ -35,7 +35,7 @@ Windows ziet het trackpad zelf niet meer (de ESP32 is de Bluetooth-host), dus de
 
 Profiel **Fusion 360** (`fusion360.exe`): twee vingers schuiven = pannen (middelste knop slepen), knijpen = zoom (wiel),
 draaien = orbit (Shift + middelste knop). Profielen, gains en toetscombinaties staan in
-`%APPDATA%\MagicTrackpadBridge\config.json` (tray-menu > Config openen, daarna Config herladen). Andere programma's
+`config.json` in de projectmap (tray-menu > Config openen, daarna Config herladen). Andere programma's
 krijgen een eigen profiel door hun exe-naam als sleutel onder `profiles` te zetten.
 
 **Numpad-modus** (Mobee NUM20-folie): het raster in `numpad.rows` wordt gelijkmatig over het trackpad verdeeld. Zet in het

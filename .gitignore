@@ -10,3 +10,6 @@ firmware-esp32/dependencies.lock
 # Logs en Python-cache
 *.log
 __pycache__/
+
+# Driver-instellingen van de gebruiker
+config.json

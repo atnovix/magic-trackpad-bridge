@@ -2,8 +2,8 @@
 
 Start:   pythonw trackpad_driver.py          (tray-icoon, geen venster)
          python  trackpad_driver.py --console (log ook in de console)
-Config:  %APPDATA%\\MagicTrackpadBridge\\config.json   (tray-menu > Config openen; daarna Config herladen)
-Log:     %APPDATA%\\MagicTrackpadBridge\\driver.log
+Config:  config.json in de projectmap (tray-menu > Config openen; daarna Config herladen)
+Log:     driver.log in de projectmap
 """
 import logging
 import logging.handlers
