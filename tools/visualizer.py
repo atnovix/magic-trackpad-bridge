@@ -1,14 +1,15 @@
 """Live weergave van de vingers op het Magic Trackpad, via de ESP32-brug op de seriële poort.
 
-Gebruik:  python visualizer.py [COMx]
+Gebruik:  python visualizer.py [COMx] [baud]
 Sluiten: venster sluiten of Esc.
+Toetsen in het venster gaan als testcommando naar de ESP32 (firmware v4): ? a s m l 9 1 c d x t b z.
 """
 import os, sys, threading, queue, time
 import tkinter as tk
 import serial
 
 PORT = next((a for a in sys.argv[1:] if a.upper().startswith("COM")), "COM3")
-BAUD = next((int(a) for a in sys.argv[1:] if a.isdigit()), 115200)
+BAUD = next((int(a) for a in sys.argv[1:] if a.isdigit()), 921600)
 LOGFILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bridge.log")
 
 # Bereik van het trackpad in apparaat-eenheden (Linux hid-magicmouse); 130 x 110 mm
@@ -17,6 +18,7 @@ Y_MIN, Y_MAX = -2456, 2565
 W, H = 650, 550
 
 q = queue.Queue()
+cmd_q = queue.Queue()   # toetsen uit het venster -> seriële poort
 
 def reader():
     logf = open(LOGFILE, "a", encoding="utf-8")
@@ -27,6 +29,11 @@ def reader():
                 ser.dtr = False; ser.rts = False
                 q.put(("status", f"verbonden met {PORT} @ {BAUD}"))
                 while True:
+                    try:
+                        while True:
+                            ser.write(cmd_q.get_nowait().encode("ascii", errors="ignore"))
+                    except queue.Empty:
+                        pass
                     line = ser.readline()
                     if not line:
                         continue
@@ -56,6 +63,7 @@ info.pack(fill="x")
 log = tk.Label(root, text="", anchor="w", font=("Consolas", 9), fg="#9ad", bg="#111")
 log.pack(fill="x")
 root.bind("<Escape>", lambda e: root.destroy())
+root.bind("<Key>", lambda e: cmd_q.put(e.char) if e.char and e.char in "?asml91cdxtbzh" else None)
 
 state = {"btn": 0, "battery": "?", "status": "-", "frames": 0, "t0": time.time(), "fps": 0.0, "last": time.time()}
 items = []
@@ -105,12 +113,17 @@ def tick():
             elif s.startswith("B "):
                 state["battery"] = s[2:] + "%"
             elif s.startswith("S "):
-                state["status"] = s[2:]
+                if s.startswith(("S stats", "S gap", "S link", "S role", "S pkt", "S mode", "S state", "S help", "S acl")):
+                    log.configure(text=s[-110:])   # diagnostiek onderin
+                    if s.startswith("S gap"):
+                        state["gaps"] = state.get("gaps", 0) + 1
+                else:
+                    state["status"] = s[2:]
             elif s.startswith("M "):
                 state["status"] = "muismodus (nog geen multitouch): " + s
         elif kind in ("log", "status"):
             log.configure(text=s[-110:])
-    info.configure(text=f"status: {state['status']}   accu: {state['battery']}   frames: {state['frames']}   ~{state['fps']:.0f} Hz   knop: {'INGEDRUKT' if state['btn'] else '-'}")
+    info.configure(text=f"status: {state['status']}   accu: {state['battery']}   frames: {state['frames']}   ~{state['fps']:.0f} Hz   gaten: {state.get('gaps', 0)}   knop: {'INGEDRUKT' if state['btn'] else '-'}   (toets ? = help)")
     root.after(15, tick)
 
 threading.Thread(target=reader, daemon=True).start()
