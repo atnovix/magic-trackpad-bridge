@@ -31,8 +31,9 @@ DEFAULTS = {
 
     "tap": {
         "tap_time_ms": 220,           # maximale duur van een tik
-        "tap_move_mm": 1.8,           # maximale verplaatsing tijdens een tik
-        "double_tap_drag_ms": 260,    # tik-tik-vasthouden binnen dit venster = slepen
+        "tap_move_mm": 2.5,           # maximale verplaatsing tijdens een tik
+        "double_tap_drag_ms": 260,    # tik-tik-vasthouden binnen dit venster = slepen ...
+        "double_tap_radius_mm": 6.0,  # ... en alleen als de tweede tik zo dicht bij de eerste begint
         "actions": {"1": "click:left", "2": "click:right", "3": "click:middle", "4": "numpad_toggle", "5": "none"},
         "button_by_fingers": {"1": "left", "2": "right", "3": "middle"},   # fysieke klik met n vingers
     },
@@ -73,13 +74,16 @@ DEFAULTS = {
     "numpad": {
         "enabled_at_start": False,
         "calibrate": False,
-        "x_mm": [0, 130], "y_mm": [0, 110],
+        "tap_time_ms": 600,           # typen op de folie gaat trager dan klikken: ruimere tikgrenzen
+        "tap_move_mm": 4.0,
+        "x_mm": [-7, 135], "y_mm": [-5, 110],   # gekalibreerd op de NUM20-folie (15-09-2026): 7 kolommen x 6 rijen
         "rows": [
-            ["numlock", "divide", "multiply", "subtract"],
-            ["numpad7", "numpad8", "numpad9", "add"],
-            ["numpad4", "numpad5", "numpad6", "add"],
-            ["numpad1", "numpad2", "numpad3", "enter"],
-            ["numpad0", "numpad0", "decimal", "enter"],
+            ["none", "none", "none", "none", "none", "none", "none"],
+            ["none", "home", "pgup", "backspace", "equals", "divide", "multiply"],
+            ["none", "end", "pgdn", "numpad7", "numpad8", "numpad9", "subtract"],
+            ["none", "none", "none", "numpad4", "numpad5", "numpad6", "add"],
+            ["none", "up", "none", "numpad1", "numpad2", "numpad3", "enter"],
+            ["left", "down", "right", "numpad0", "numpad0", "decimal", "enter"],
         ],
     },
 }

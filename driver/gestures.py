@@ -80,11 +80,12 @@ class GestureEngine:
         self.emit = emit
         self.touches = {}          # id -> _Touch (alleen actieve contacten)
         self.session = None
-        self.last_tap = None       # (t_end, fingers)
+        self.last_tap = None       # (t_end, fingers, x_mm, y_mm)
         self.drag = False
         self.btn_down = None       # naam van de knop die de fysieke klik nu vasthoudt
         self.last_t = None
-        self.numpad = False        # in numpad-modus beweegt de cursor niet
+        self.numpad = False        # in numpad-modus beweegt de cursor niet en is tik-tik-slepen uit
+        self.lenient_tap = False   # numpad/kalibratie: ruimere tikgrenzen (typen gaat trager dan klikken)
 
     # ------------------------------------------------------------------ frames
     def feed(self, fr):
@@ -118,8 +119,10 @@ class GestureEngine:
             first = next(iter(self.touches.values()))
             s["x0"], s["y0"] = first.x0, first.y0
             self.emit("session_begin", fingers=n)
-            if (n == 1 and not self.numpad and self.last_tap and self.last_tap[1] == 1
-                    and fr.t - self.last_tap[0] < c["tap"]["double_tap_drag_ms"] / 1000.0):
+            lt = self.last_tap
+            if (n == 1 and not self.numpad and not self.lenient_tap and lt and lt[1] == 1
+                    and fr.t - lt[0] < c["tap"]["double_tap_drag_ms"] / 1000.0
+                    and math.hypot(first.x0 - lt[2], first.y0 - lt[3]) < c["tap"].get("double_tap_radius_mm", 6.0)):
                 self.drag = True
                 self.emit("drag", down=True)
 
@@ -153,18 +156,22 @@ class GestureEngine:
         if n == 0 and s is not None:
             self._end_mode()
             dur = fr.t - s["start"]
+            if self.lenient_tap or self.numpad:
+                max_move, max_ms = c["numpad"]["tap_move_mm"], c["numpad"]["tap_time_ms"]
+            else:
+                max_move, max_ms = c["tap"]["tap_move_mm"], c["tap"]["tap_time_ms"]
             is_tap = (not s["fired"] and s["mode"] is None and not self.drag
-                      and s["moved"] < c["tap"]["tap_move_mm"] and dur < c["tap"]["tap_time_ms"] / 1000.0)
+                      and s["moved"] < max_move and dur < max_ms / 1000.0)
             if self.drag:
                 self.drag = False
                 self.emit("drag", down=False)
                 self.last_tap = None
             elif is_tap:
                 self.emit("tap", fingers=s["max_n"], x_mm=s["x0"], y_mm=s["y0"])
-                self.last_tap = (fr.t, s["max_n"])
+                self.last_tap = (fr.t, s["max_n"], s["x0"], s["y0"])
             else:
                 self.last_tap = None
-            self.emit("session_end")
+            self.emit("session_end", fingers=s["max_n"], duration_ms=dur * 1000.0, moved_mm=s["moved"], tap=is_tap)
             self.session = None
 
     # ------------------------------------------------------------------ één vinger

@@ -83,6 +83,7 @@ class Driver:
         self.output = Output(cfg, on_numpad_toggle=self._numpad_changed)
         self.engine = GestureEngine(cfg, self.output.handle)
         self.engine.numpad = self.output.numpad_on
+        self.engine.lenient_tap = bool(cfg["numpad"].get("calibrate"))
         self.reader = BridgeReader(cfg["serial"]["port"], cfg["serial"]["baud"], self._on_line, self._on_status)
         self.port_open = False
         self.trackpad_connected = False
@@ -164,6 +165,7 @@ class Driver:
             return
         self.cfg = cfg
         self.engine.cfg = cfg
+        self.engine.lenient_tap = bool(cfg["numpad"].get("calibrate"))
         self.output.reload(cfg)
         log.info("config herladen")
 
@@ -174,6 +176,7 @@ class Driver:
 
     def set_calibrate(self, on):
         self.cfg["numpad"]["calibrate"] = bool(on)
+        self.engine.lenient_tap = bool(on)
         log.info("numpad-kalibratie %s (tik op de folie en kijk in het log)", "aan" if on else "uit")
 
     # -- tray
