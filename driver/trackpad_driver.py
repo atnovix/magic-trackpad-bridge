@@ -95,6 +95,7 @@ class Driver:
         self.engine = GestureEngine(cfg, self.output.handle)
         self.engine.numpad = self.output.numpad_on
         self.engine.lenient_tap = bool(cfg["numpad"].get("calibrate"))
+        self.engine.toggle_cell = self.output.is_toggle_cell
         self.reader = BridgeReader(cfg["serial"]["port"], cfg["serial"]["baud"], self._on_line, self._on_status)
         self.port_open = False
         self.trackpad_connected = False

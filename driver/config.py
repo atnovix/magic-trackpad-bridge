@@ -35,7 +35,7 @@ DEFAULTS = {
         "double_tap_drag_ms": 260,    # tik-tik-vasthouden binnen dit venster = slepen ...
         "double_tap_radius_mm": 6.0,  # ... en alleen als de tweede tik zo dicht bij de eerste begint
         "hold_ms": 700,               # één vinger zo lang stil = "hold" (numpad-schakelaar op de folie)
-        "hold_move_mm": 3.0,
+        "hold_move_mm": 5.0,
         "actions": {"1": "click:left", "2": "click:right", "3": "click:middle", "4": "numpad_toggle", "5": "none"},
         "button_by_fingers": {"1": "left", "2": "right", "3": "middle"},   # fysieke klik met n vingers
     },
@@ -78,6 +78,8 @@ DEFAULTS = {
         "calibrate": False,
         "tap_time_ms": 600,           # typen op de folie gaat trager dan klikken: ruimere tikgrenzen
         "tap_move_mm": 4.0,
+        "toggle_debounce_s": 1.0,     # na een omschakeling de schakelaar zo lang negeren
+        "sound": True,                # korte toon bij omschakelen (hoog = numpad aan, laag = uit)
         "x_mm": [-7, 135], "y_mm": [-5, 110],   # gekalibreerd op de NUM20-folie (15-09-2026): 7 kolommen x 6 rijen
         "rows": [
             ["f13", "f14", "f15", "f16", "f17", "win+tab", "numpad_toggle"],

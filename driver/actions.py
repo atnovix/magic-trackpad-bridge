@@ -24,6 +24,7 @@ class Output:
         self.held_button = None        # knop die een drag-gesture vasthoudt
         self.rot_acc = 0.0
         self.inertia = None            # {"vx","vy","t","spec"}
+        self._toggle_t = 0.0           # laatste numpad-omschakeling (ontdendering)
 
     def reload(self, cfg):
         self.cfg = cfg
@@ -76,7 +77,7 @@ class Output:
         if self.numpad_on and fingers == 1:
             key = self.numpad.key_at(x_mm, y_mm)
             if key == "numpad_toggle":
-                self._run_action(key)
+                self._toggle_numpad("tik")
             elif key:
                 winput.send_chord(key)
             return
@@ -86,7 +87,26 @@ class Output:
     def ev_hold(self, x_mm, y_mm):
         # lang indrukken op de numpad-schakelaar van de folie zet de numpad-modus aan (of uit)
         if self.numpad.key_at(x_mm, y_mm) == "numpad_toggle":
-            self._run_action("numpad_toggle")
+            self._toggle_numpad("vasthouden")
+
+    def is_toggle_cell(self, x_mm, y_mm):
+        return self.numpad.key_at(x_mm, y_mm) == "numpad_toggle"
+
+    def _toggle_numpad(self, how):
+        # Ontdendering: het loslaten na een lang indrukken levert soms een tweede, kort contact op dat als tik
+        # op dezelfde cel binnenkomt en de modus meteen weer terugzette.
+        now = time.monotonic()
+        if now - self._toggle_t < self.cfg["numpad"].get("toggle_debounce_s", 1.0):
+            log.info("numpad-schakelaar genegeerd (%s, %.0f ms na de vorige)", how, (now - self._toggle_t) * 1000)
+            return
+        self._toggle_t = now
+        self._run_action("numpad_toggle")
+        if self.cfg["numpad"].get("sound", True):
+            try:
+                import winsound
+                winsound.Beep(1200 if self.numpad_on else 700, 60)
+            except Exception:
+                pass
 
     def _run_action(self, action):
         if not action or action == "none":

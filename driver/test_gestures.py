@@ -152,6 +152,32 @@ def test_numpad_click_types_key():
     assert "button" not in n and n.count("tap") == 1, n
 
 
+def test_hold_with_physical_click_in_toggle_cell():
+    rec = Rec()
+    eng = GestureEngine(config.DEFAULTS, rec)
+    eng.toggle_cell = lambda x, y: x > 110 and y < 15
+    t = 0.0
+    for i in range(90):
+        eng.feed(Frame(t, 1 if i >= 2 else 0, 0, [touch(1, 124, 5)])); t += 0.01
+    eng.feed(Frame(t, 0, 0, [touch(1, 124, 5)])); t += 0.01
+    eng.feed(Frame(t, 0, 0, []))
+    n = rec.names()
+    assert "hold" in n and "button" not in n, n
+
+
+def test_short_physical_click_in_toggle_cell_is_deferred_click():
+    rec = Rec()
+    eng = GestureEngine(config.DEFAULTS, rec)
+    eng.toggle_cell = lambda x, y: x > 110 and y < 15
+    t = 0.0
+    for btn in [0, 1, 1, 1, 0, 0]:
+        eng.feed(Frame(t, btn, 0, [touch(1, 124, 5)])); t += 0.01
+    eng.feed(Frame(t, 0, 0, []))
+    btns = [kw for e, kw in rec.events if e == "button"]
+    assert btns == [{"name": "left", "down": True}, {"name": "left", "down": False}], btns
+    assert "hold" not in rec.names()
+
+
 def test_parse_line():
     fr = Frame.parse("F 1 123 2 3,-1187,373,4,83,102,6,0 4,-147,-122,4,64,77,5,0", 0.0)
     assert fr.btn == 1 and len(fr.touches) == 2

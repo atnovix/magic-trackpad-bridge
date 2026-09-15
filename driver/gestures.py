@@ -87,6 +87,7 @@ class GestureEngine:
         self.last_t = None
         self.numpad = False        # in numpad-modus beweegt de cursor niet en is tik-tik-slepen uit
         self.lenient_tap = False   # numpad/kalibratie: ruimere tikgrenzen (typen gaat trager dan klikken)
+        self.toggle_cell = None    # callable(x_mm, y_mm) -> True op de numpad-schakelaar van de folie
 
     # ------------------------------------------------------------------ frames
     def feed(self, fr):
@@ -138,7 +139,14 @@ class GestureEngine:
 
         # fysieke klik
         if fr.btn and self.btn_down is None:
-            if self.numpad and n >= 1:
+            first = next(iter(self.touches.values())) if n >= 1 else None
+            if (not self.numpad and first is not None and self.toggle_cell and s is not None
+                    and self.toggle_cell(first.x0, first.y0)):
+                # klik op de schakelaar van de folie: uitstellen; kort = gewone klik bij loslaten,
+                # lang vasthouden = 'hold' (numpad aan) zonder klik
+                self.btn_down = "deferred"
+                s["deferred_btn"] = c["tap"]["button_by_fingers"].get(str(max(n, 1)), "left")
+            elif self.numpad and n >= 1:
                 # in numpad-modus is de klik een toetsaanslag op de plek van de vinger, geen muisknop
                 first = next(iter(self.touches.values()))
                 self.btn_down = "numpad"
@@ -149,15 +157,22 @@ class GestureEngine:
                 self.btn_down = name
                 self.emit("button", name=name, down=True)
         elif not fr.btn and self.btn_down is not None:
-            if self.btn_down != "numpad":
+            if self.btn_down == "deferred":
+                if s is not None and not s.get("hold_fired"):
+                    name = s.get("deferred_btn", "left") if s else "left"
+                    self.emit("button", name=name, down=True)
+                    self.emit("button", name=name, down=False)
+            elif self.btn_down != "numpad":
                 self.emit("button", name=self.btn_down, down=False)
             self.btn_down = None
 
         # lang stil indrukken met één vinger (bijv. numpad-schakelaar op de folie)
-        if (s is not None and n == 1 and not s["fired"] and not self.drag and self.btn_down is None
-                and s["moved"] < c["tap"].get("hold_move_mm", 3.0)
+        if (s is not None and n == 1 and not s["fired"] and not self.drag
+                and self.btn_down in (None, "deferred")
+                and s["moved"] < c["tap"].get("hold_move_mm", 5.0)
                 and fr.t - s["start"] > c["tap"].get("hold_ms", 700) / 1000.0):
             s["fired"] = True
+            s["hold_fired"] = True
             self.emit("hold", x_mm=s["x0"], y_mm=s["y0"])
 
         if s is not None and n > 0:
@@ -171,6 +186,12 @@ class GestureEngine:
 
         if n == 0 and s is not None:
             self._end_mode()
+            if self.btn_down == "deferred":
+                if not s.get("hold_fired"):
+                    name = s.get("deferred_btn", "left")
+                    self.emit("button", name=name, down=True)
+                    self.emit("button", name=name, down=False)
+                self.btn_down = None
             dur = fr.t - s["start"]
             if self.lenient_tap or self.numpad:
                 max_move, max_ms = c["numpad"]["tap_move_mm"], c["numpad"]["tap_time_ms"]
