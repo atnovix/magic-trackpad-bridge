@@ -28,7 +28,10 @@ def reader():
             with serial.Serial(PORT, BAUD, timeout=0.2) as ser:
                 ser.dtr = False; ser.rts = False
                 q.put(("status", f"verbonden met {PORT} @ {BAUD}"))
+                last_beat = 0.0
                 while True:
+                    if time.time() - last_beat >= 5:      # hartslag: anders laat firmware v5 het trackpad slapen
+                        last_beat = time.time(); ser.write(b"k")
                     try:
                         while True:
                             ser.write(cmd_q.get_nowait().encode("ascii", errors="ignore"))

@@ -1,6 +1,7 @@
 """Seriële verbinding met de ESP32-brug: regels lezen in een eigen thread, automatisch herverbinden.
 
 De poort wordt geopend met DTR en RTS laag vóór het openen, zodat de CP2102 het bordje niet reset.
+Elke HEARTBEAT_S seconden gaat een 'k' naar het bordje: blijft die uit, dan laat de firmware het trackpad slapen.
 """
 import logging
 import threading
@@ -9,6 +10,7 @@ import time
 import serial
 
 log = logging.getLogger("bridge")
+HEARTBEAT_S = 5.0
 
 
 class BridgeReader(threading.Thread):
@@ -47,8 +49,13 @@ class BridgeReader(threading.Thread):
                 self._ser = ser
                 self.on_status(True, f"seriële poort {self.port} open")
                 self._reopen.clear()
+                last_beat = 0.0
                 with ser:
                     while not self._stop.is_set() and not self._reopen.is_set():
+                        now = time.monotonic()
+                        if now - last_beat >= HEARTBEAT_S:
+                            last_beat = now
+                            ser.write(b"k")
                         raw = ser.readline()
                         if not raw:
                             continue

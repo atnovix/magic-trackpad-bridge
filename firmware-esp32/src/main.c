@@ -1,4 +1,4 @@
-// TrackpadBridge — ESP32 als Bluetooth-HID-host voor de Apple Magic Trackpad 1 (A1339).  Firmware v4.
+// TrackpadBridge — ESP32 als Bluetooth-HID-host voor de Apple Magic Trackpad 1 (A1339).  Firmware v5.
 //
 // Wat het doet:
 //   1. Verbindt (en koppelt) met het trackpad op vast Bluetooth-adres. Na de eerste koppeling wachten we
@@ -12,6 +12,10 @@
 //      tekstregels over de console-UART (USB, 921600 baud) naar de laptop.
 //   5. Luistert op dezelfde UART naar testcommando's (één letter), zodat linkinstellingen zonder herflashen
 //      te proberen zijn. Stuur '?' voor de lijst.
+//   6. Spaart de batterijen van het trackpad: de laptop stuurt elke paar seconden een hartslag ('k'). Blijft die
+//      60 s uit (laptop uit of in slaap), dan laat het bordje het trackpad los en is het niet meer verbindbaar,
+//      zodat het trackpad zelf gaat slapen. Ligt er 10 s geen vinger op, dan wordt sniffmodus toegestaan; bij de
+//      eerste aanraking wordt de link weer actief gemaakt (1-2 vingers werken ook in sniff, dus geen verlies).
 //
 // Regelformaat naar de laptop (elke regel eindigt op '\n'):
 //   F <knop> <ts> <n> <id>,<x>,<y>,<state>,<major>,<minor>,<size>,<orient> ...   multitouch-frame
@@ -105,6 +109,14 @@ static volatile uint32_t s_dropped = 0;                // regels die niet in de 
 static volatile uint32_t s_stalls = 0;                 // gaten > 150 ms terwijl er vingers op lagen
 static volatile uint32_t s_hist[8];                    // frames per vingeraantal (0..6, 7 = 7+)
 static volatile uint16_t s_max_len = 0;                // grootste 0x28-report tot nu toe
+static volatile int64_t  s_last_host_us = 0;           // laatste byte van de laptop (hartslag of commando)
+static volatile bool     s_host_present = false;       // laptop luistert (hartslag binnen HOST_TIMEOUT)
+static volatile bool     s_idle_sniff = false;         // sniff tijdelijk toegestaan omdat er niets aangeraakt wordt
+
+#define HOST_TIMEOUT_US   (60 * 1000000LL)
+#define IDLE_SNIFF_US     (10 * 1000000LL)
+
+static void apply_power_policy(const char *why);
 
 // Regels naar de laptop gaan via een wachtrij naar een aparte taak, zodat de Bluetooth-taak
 // nooit hoeft te wachten op de UART.
@@ -205,6 +217,10 @@ static void emit_frame(const uint8_t *d, uint16_t len)
 static void handle_input(const uint8_t *d, uint16_t len)
 {
     if (len == 0) return;
+    if (s_idle_sniff) {
+        s_idle_sniff = false;
+        apply_power_policy("aanraking na stilstand");
+    }
     switch (d[0]) {
     case REPORT_TRACKPAD:
         emit_frame(d, len);
@@ -244,15 +260,15 @@ static void send_mt_mode(void)
 // Link actief houden: sniff/hold/park uit de link policy (dan wijst de controller het sniff-verzoek van
 // het trackpad af) en zelf actieve modus eisen (dan wint dat van Bluedroids eigen power manager:
 // btm_pm_get_set_mode geeft ACTIVE voorrang zodra één geregistreerde partij dat vraagt).
-static void apply_power_policy(const char *why)
+static void apply_power(bool active, const char *why)
 {
     if (!s_acl_up) return;
-    uint16_t policy = s_want_active ? HCI_ENABLE_MASTER_SLAVE_SWITCH
-                                    : (HCI_ENABLE_MASTER_SLAVE_SWITCH | HCI_ENABLE_SNIFF_MODE);
+    uint16_t policy = active ? HCI_ENABLE_MASTER_SLAVE_SWITCH
+                             : (HCI_ENABLE_MASTER_SLAVE_SWITCH | HCI_ENABLE_SNIFF_MODE);
     uint8_t r1 = BTM_SetLinkPolicy(s_trackpad_bda, &policy);
     btm_pm_pwr_md_t md = { 0 };
     uint8_t r2;
-    if (s_want_active) {
+    if (active) {
         md.mode = BTM_PM_MD_ACTIVE;
         r2 = BTM_SetPowerMode(s_pm_id, s_trackpad_bda, &md);
     } else {
@@ -260,7 +276,27 @@ static void apply_power_policy(const char *why)
         md.mode = BTM_PM_MD_SNIFF; md.max = 800; md.min = 6; md.attempt = 4; md.timeout = 1;
         r2 = BTM_SetPowerMode(s_pm_id, s_trackpad_bda, &md);
     }
-    status_line("S link policy=0x%04x active=%d r=%u/%u (%s)", policy, s_want_active, r1, r2, why);
+    status_line("S link policy=0x%04x active=%d r=%u/%u (%s)", policy, active, r1, r2, why);
+}
+
+// Gewenste linkmodus: actief als de gebruiker dat wil en er recent aangeraakt is; anders sniff toestaan.
+static void apply_power_policy(const char *why)
+{
+    apply_power(s_want_active && !s_idle_sniff, why);
+}
+
+static void set_host_present(bool present)
+{
+    s_host_present = present;
+    if (present) {
+        esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
+        s_next_connect_us = esp_timer_get_time() + 3 * 1000000LL;
+        status_line("S host present -> verbindbaar");
+    } else {
+        status_line("S host away -> trackpad loslaten, niet verbindbaar");
+        esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
+        if (s_state == ST_CONNECTED) esp_bt_hid_host_disconnect(s_trackpad_bda);
+    }
 }
 
 static void role_cb(void *p) { (void)p; }
@@ -302,9 +338,9 @@ static void print_link_state(void)
 {
     uint8_t role = 0xFF;
     if (s_acl_up) BTM_GetRole(s_trackpad_bda, &role);
-    status_line("S state conn=%d acl=%d bonded=%d role=%s mode=%u intv=%u active=%d master=%d pkt=0x%04x mt=%d",
+    status_line("S state conn=%d acl=%d bonded=%d role=%s mode=%u intv=%u active=%d master=%d pkt=0x%04x mt=%d host=%d idle=%d",
                 (int)s_state, s_acl_up, s_bonded, role_name(role),
-                s_link_mode, s_link_interval, s_want_active, s_want_master, s_pkt_types, s_mt_active);
+                s_link_mode, s_link_interval, s_want_active, s_want_master, s_pkt_types, s_mt_active, s_host_present, s_idle_sniff);
 }
 
 // ---------------------------------------------------------------------------
@@ -363,7 +399,7 @@ static void gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param)
         s_link_mode = param->mode_chg.mode;
         s_link_interval = param->mode_chg.interval;
         status_line("S mode %u intv=%u", param->mode_chg.mode, param->mode_chg.interval);
-        if (param->mode_chg.mode != ESP_BT_PM_MD_ACTIVE && s_want_active) apply_power_policy("na moduswissel");
+        if (param->mode_chg.mode != ESP_BT_PM_MD_ACTIVE && s_want_active && !s_idle_sniff) apply_power_policy("na moduswissel");
         break;
     default:
         ESP_LOGI(TAG, "GAP-event %d", event);
@@ -395,6 +431,7 @@ static void hidh_cb(esp_hidh_cb_event_t event, esp_hidh_cb_param_t *param)
             s_last_frame_us = 0;
             s_last_frame_n = 0;
             s_frames = 0;
+            s_idle_sniff = false;
             s_acl_up = true;   // zeker weten (ACL-event kan vóór onze registratie gevallen zijn)
             status_line("S connected orig=%d", param->open.is_orig);
             apply_power_policy("bij verbinden");
@@ -468,6 +505,7 @@ static void print_help(void)
         "S help  c  nu zelf verbinden   d  HID-verbinding verbreken   x  ACL afbreken",
         "S help  t  multitouch-commando (D7 01) opnieuw sturen   b  accu opvragen",
         "S help  z  tellers op nul",
+        "S help  k  hartslag van de laptop (elke 5 s; 60 s stilte = trackpad loslaten)",
     };
     for (size_t i = 0; i < sizeof lines / sizeof lines[0]; i++) queue_line(lines[i], strlen(lines[i]));
 }
@@ -488,6 +526,7 @@ static void handle_command(char c)
     case 't': if (s_state == ST_CONNECTED) send_mt_mode(); break;
     case 'b': if (s_state == ST_CONNECTED) request_battery(); break;
     case 'z': s_frames = s_bytes = s_dropped = s_stalls = 0; s_max_len = 0; memset((void *)s_hist, 0, sizeof s_hist); status_line("S tellers gewist"); break;
+    case 'k': break;   // hartslag; de tijd is al bijgewerkt in rx_task
     case '\r': case '\n': case ' ': break;
     default: status_line("S onbekend commando '%c' (? = help)", c); break;
     }
@@ -497,7 +536,10 @@ static void rx_task(void *arg)
 {
     uint8_t b;
     for (;;) {
-        if (uart_read_bytes(UART_NUM_0, &b, 1, portMAX_DELAY) == 1) handle_command((char)b);
+        if (uart_read_bytes(UART_NUM_0, &b, 1, portMAX_DELAY) == 1) {
+            s_last_host_us = esp_timer_get_time();
+            handle_command((char)b);
+        }
     }
 }
 
@@ -514,12 +556,15 @@ static void supervisor_task(void *arg)
         if (!s_hidh_ready) continue;
         int64_t now = esp_timer_get_time();
 
+        bool present = s_last_host_us != 0 && now - s_last_host_us < HOST_TIMEOUT_US;
+        if (present != s_host_present) set_host_present(present);
+
         switch (s_state) {
         case ST_IDLE:
             // Zelf verbinden alleen als er geen basebandlink is (anders "Conn Exists" / dubbele ACL-poging)
             // en pas na de wachttijd: een gekoppeld trackpad verbindt bij aanraken zelf, en dat is de
             // veilige route. Commando 'c' zet de wachttijd op nul.
-            if (!s_acl_up && now - last_connect_try > 5 * 1000000LL && now >= s_next_connect_us) {
+            if (s_host_present && !s_acl_up && now - last_connect_try > 5 * 1000000LL && now >= s_next_connect_us) {
                 last_connect_try = now;
                 s_state = ST_CONNECTING;
                 ESP_LOGI(TAG, "verbinden met trackpad...");
@@ -543,14 +588,19 @@ static void supervisor_task(void *arg)
             bool need_cmd = (s_last_mode_cmd_us == 0 && since_conn > 300000LL)                    // eerste keer, 0,3 s na verbinden
                           || (mouse_after_cmd && since_cmd > 2 * 1000000LL);                       // nog steeds in muismodus
             if (need_cmd) send_mt_mode();
+            int64_t idle = now - (s_last_frame_us ? s_last_frame_us : s_connected_at_us);
+            if (s_want_active && !s_idle_sniff && idle > IDLE_SNIFF_US) {
+                s_idle_sniff = true;
+                apply_power_policy("stilstand");
+            }
             if (now - last_stats > 5 * 1000000LL) {
                 last_stats = now;
                 uint8_t role = 0xFF;
                 if (s_acl_up) BTM_GetRole(s_trackpad_bda, &role);
                 status_line("S stats frames=%" PRIu32 " n1=%" PRIu32 " n2=%" PRIu32 " n3=%" PRIu32 " n4=%" PRIu32 " n5=%" PRIu32 " n6+=%" PRIu32
-                            " maxlen=%u bytes=%" PRIu32 " stalls=%" PRIu32 " drop=%" PRIu32 " mode=%u intv=%u role=%s heap=%" PRIu32,
+                            " maxlen=%u bytes=%" PRIu32 " stalls=%" PRIu32 " drop=%" PRIu32 " mode=%u intv=%u role=%s idle=%d heap=%" PRIu32,
                             s_frames, s_hist[1], s_hist[2], s_hist[3], s_hist[4], s_hist[5], s_hist[6] + s_hist[7], s_max_len, s_bytes,
-                            s_stalls, s_dropped, s_link_mode, s_link_interval, role_name(role), esp_get_free_heap_size());
+                            s_stalls, s_dropped, s_link_mode, s_link_interval, role_name(role), s_idle_sniff, esp_get_free_heap_size());
             }
             if ((last_battery == 0 && since_conn > 2 * 1000000LL) || (last_battery != 0 && now - last_battery > 600 * 1000000LL)) {
                 last_battery = now;
@@ -611,8 +661,8 @@ void app_main(void)
     esp_bt_pin_code_t pin = { 0 };
     esp_bt_gap_set_pin(ESP_BT_PIN_TYPE_VARIABLE, 0, pin);
 
-    // Verbindbaar (zodat het trackpad na de slaapstand zelf terug kan komen), niet zichtbaar voor anderen.
-    esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
+    // Pas verbindbaar zodra de laptop een hartslag stuurt (set_host_present); tot die tijd laten we het trackpad slapen.
+    esp_bt_gap_set_scan_mode(ESP_BT_NON_CONNECTABLE, ESP_BT_NON_DISCOVERABLE);
 
     // Al gekoppeld? Dan het trackpad eerst 30 s de kans geven zelf te verbinden (raak het aan).
     int bonds = esp_bt_gap_get_bond_device_num();
@@ -625,6 +675,6 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_bt_hid_host_init());
 
     xTaskCreate(supervisor_task, "supervisor", 4096, NULL, 5, NULL);
-    ESP_LOGI(TAG, "TrackpadBridge v4 gestart; eigen adres %s; '?' voor commando's", bda_str(esp_bt_dev_get_address(), (char[18]){0}));
+    ESP_LOGI(TAG, "TrackpadBridge v5 gestart; eigen adres %s; '?' voor commando's; wacht op hartslag van de laptop", bda_str(esp_bt_dev_get_address(), (char[18]){0}));
     print_help();
 }

@@ -11,8 +11,10 @@ Magic Trackpad 1  --Bluetooth-->  ESP32 (firmware-esp32)  --USB-serieel 921600 b
 ## Mappen
 
 - `firmware-esp32/` — PlatformIO-project (framework ESP-IDF). Bouwen: `pio run`, flashen: `pio run -t upload` (poort COM3).
-  Firmware v4 houdt de link uit de sniffmodus (anders vallen frames met 3+ vingers weg) en kent testcommando's over de
-  seriële poort (`?` voor de lijst).
+  Firmware v5 houdt de link uit de sniffmodus (anders vallen frames met 3+ vingers weg) en kent testcommando's over de
+  seriële poort (`?` voor de lijst). Batterijen sparen: de driver stuurt elke 5 s een hartslag (`k`); blijft die 60 s
+  uit (laptop uit of in slaap), dan laat het bordje het trackpad los en is het niet verbindbaar, zodat het trackpad
+  slaapt. Na 10 s zonder aanraking wordt sniff toegestaan; de eerste aanraking maakt de link weer actief.
 - `driver/` — het Windows-achtergrondprogramma (Python, alleen `pyserial`, `pystray`, `Pillow`). Zie hieronder.
 - `tools/serial_tail.py` — N seconden meelezen op de seriële poort (`python serial_tail.py COM3 10 --reset`).
 - `tools/visualizer.py` — live vingerweergave (`python visualizer.py COM3`); toetsen in het venster gaan als commando naar de ESP32.

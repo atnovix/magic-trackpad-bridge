@@ -175,7 +175,7 @@ class Driver:
             self._refresh_icon()
         elif body.startswith("gap"):
             log.debug("esp32: %s", body)      # stil liggende vinger geeft ook gaten; alleen voor diagnose
-        elif body.startswith(("acl", "mode", "role", "link", "pkt")):
+        elif body.startswith(("acl", "mode", "role", "link", "pkt", "host")):
             log.info("esp32: %s", body)
 
     # -- besturing

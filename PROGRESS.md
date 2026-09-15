@@ -43,6 +43,13 @@ Twee losse problemen:
    na ~2 min. Fix in v4: met een koppelsleutel in NVS eerst 30 s wachten tot het trackpad zelf verbindt (bij aanraken),
    nooit zelf verbinden zolang er een ACL staat, en bij "HID dicht maar ACL nog open" de ACL zelf afbreken.
 
+## Nieuw in v5 (geflasht 15-09-2026, 23:57)
+
+- Hartslag: de laptop stuurt elke 5 s `k` (driver, visualizer en serial_tail). Zonder hartslag gedurende 60 s laat het
+  bordje het trackpad los en zet het zichzelf op niet-verbindbaar; bij de eerste hartslag weer verbindbaar en zelf
+  verbinden. Bij opstarten is het bordje niet verbindbaar tot de eerste hartslag.
+- Stilstand: 10 s zonder frames -> sniff toegestaan (`S link ... active=0 (stilstand)`); eerste aanraking -> actief.
+
 ## Nieuw in v4 (`firmware-esp32/src/main.c`)
 
 - Diagnostiek: `S mode`, `S link`, `S role`, `S pkt`, `S acl up/down`, `S gap n=<vingers> ms=<gat>` (gat > 150 ms terwijl

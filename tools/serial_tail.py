@@ -29,7 +29,10 @@ with serial.Serial(port, baud, timeout=0.2) as ser:
     ser.reset_input_buffer()
     t_end = time.time() + secs
     counts = {}
+    last_beat = 0.0
     while time.time() < t_end:
+        if time.time() - last_beat >= 5:      # hartslag voor firmware v5
+            last_beat = time.time(); ser.write(b"k")
         line = ser.readline()
         if not line:
             continue
