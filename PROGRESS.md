@@ -1,6 +1,6 @@
 # Voortgang MagicTrackpadBridge
 
-Stand: dinsdag 15 september 2026, 20:45.
+Stand: dinsdag 15 september 2026, 22:00.
 
 ## Wat werkt
 
@@ -9,7 +9,11 @@ Stand: dinsdag 15 september 2026, 20:45.
 - Eén en twee vingers werkten in v2 soepel. Printen loopt via een aparte taak met wachtrij (`drop=0`).
 - **Firmware v4 is op 15-09-2026 geflasht en draait.** Bij een reset verbond het trackpad binnen 5 s zélf; de link bleef
   in actieve modus (`mode=0`, geen sniff-omschakeling meer) en het bordje is master. Multitouch-commando en accu (100 %) OK.
-  De 3/4-vingertest met v4 is nog NIET gedaan (niemand aan het trackpad).
+  Getest door de gebruiker: werkt, ook met 10 vingers.
+- **Driver op de laptop (`driver/`, 15-09-2026):** cursor met versnelling, tik/tik-tik-slepen/fysieke klik, 2-vinger
+  scrollen (natural, traagheid), pinch-zoom, draaien, 3/4-vingervegen, per-programma-profielen (Fusion 360: pannen,
+  zoom, orbit), numpad-modus met kalibratie, tray-icoon met autostart. Gesture-engine is hardwareloos getest
+  (`driver/test_gestures.py`, 13 tests). Op de echte hardware nog te tunen: gains, drempels, NUM20-raster.
 
 ## Analyse van de fout van 6 september (v2, `tools/bridge.log`)
 
@@ -44,14 +48,11 @@ Twee losse problemen:
 
 ## Volgende stappen
 
-1. `python tools/visualizer.py COM3` starten, trackpad aanraken (verbindt zelf) en testen: 1, 2, 3, 4 en 5 vingers,
-   ook 3 vingers ruim een seconde stil laten liggen. Kijk naar `n3`/`n4`/`n5`, `stalls` en `S gap`-regels.
-2. Werkt 3+ nog niet: in de viewer `1` (alleen 1-slot pakketten) en daarna `9` proberen; `l` (slave) versus `m`;
-   `s` om te bewijzen dat sniff de oorzaak is (verwachting: dan weer bursts van 4 frames).
-3. Als de link stabiel is: achtergrondprogramma op de laptop dat `F`-regels vertaalt naar gestures (scrollen, rechtsklik,
-   zoom) en het NUM20-numpadraster (Mobee-folie).
-4. Op termijn: Raspberry Pi Pico W (klassiek Bluetooth én native USB) zodat het bordje zich als echt Precision Touchpad
-   kan aanmelden; de ESP32 kan dat niet.
+1. Driver in de praktijk tunen: `python driver	rackpad_driver.py --console`, cursorsnelheid (`pointer`), tikdrempels,
+   scroll/pinch/rotate-drempels en de Fusion-gains in `%APPDATA%\MagicTrackpadBridge\config.json`.
+2. NUM20-raster kalibreren (tray > Numpad-kalibratie, tikken, log lezen, `numpad.rows`/`x_mm`/`y_mm` aanpassen).
+3. Wensen daarna: palm-/duimonderdrukking verfijnen, gesture voor Fusion "kijk van voren" e.d., eventueel een
+   Pi Pico W zodat het bordje zich als echt Precision Touchpad kan aanmelden (niet nodig voor Fusion-gestures).
 
 ## Testopstelling
 
