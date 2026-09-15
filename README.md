@@ -38,9 +38,11 @@ draaien = orbit (Shift + middelste knop). Profielen, gains en toetscombinaties s
 `config.json` in de projectmap (tray-menu > Config openen, daarna Config herladen). Andere programma's
 krijgen een eigen profiel door hun exe-naam als sleutel onder `profiles` te zetten.
 
-**Numpad-modus** (Mobee NUM20-folie): het raster in `numpad.rows` wordt gelijkmatig over het trackpad verdeeld. Zet in het
-tray-menu "Numpad-kalibratie" aan, tik op de folie en lees in het log welke cel geraakt wordt; pas dan `rows`,
-`x_mm` en `y_mm` aan. Autostart bij aanmelden staat in het tray-menu (registersleutel HKCU\...\Run).
+**Numpad-modus** (Mobee NUM20-folie): aan/uit met een vier-vinger-tik of het schuifknopje rechtsboven op de folie.
+Het raster (7 kolommen x 6 rijen, `numpad.rows`) is gekalibreerd op de folie: F13-F17, raster-icoon = taakweergave,
+schuifknop = terug naar muis; lege toets, home, page up, clear (= backspace), = / *; del, end, page down, 7 8 9 -;
+4 5 6 +; pijl omhoog, 1 2 3 enter; pijlen links/omlaag/rechts, 0 . enter. Klopt een toets niet: zet in het tray-menu
+"Numpad-kalibratie" aan, tik, lees in het log welke cel geraakt wordt en pas `rows`, `x_mm` of `y_mm` aan. Autostart bij aanmelden staat in het tray-menu (registersleutel HKCU\...\Run).
 
 ## Protocol trackpad (uit Linux `hid-magicmouse.c`)
 

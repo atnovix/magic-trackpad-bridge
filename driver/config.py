@@ -78,9 +78,9 @@ DEFAULTS = {
         "tap_move_mm": 4.0,
         "x_mm": [-7, 135], "y_mm": [-5, 110],   # gekalibreerd op de NUM20-folie (15-09-2026): 7 kolommen x 6 rijen
         "rows": [
-            ["none", "none", "none", "none", "none", "none", "none"],
+            ["f13", "f14", "f15", "f16", "f17", "win+tab", "numpad_toggle"],
             ["none", "home", "pgup", "backspace", "equals", "divide", "multiply"],
-            ["none", "end", "pgdn", "numpad7", "numpad8", "numpad9", "subtract"],
+            ["delete", "end", "pgdn", "numpad7", "numpad8", "numpad9", "subtract"],
             ["none", "none", "none", "numpad4", "numpad5", "numpad6", "add"],
             ["none", "up", "none", "numpad1", "numpad2", "numpad3", "enter"],
             ["left", "down", "right", "numpad0", "numpad0", "decimal", "enter"],

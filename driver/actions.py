@@ -75,7 +75,9 @@ class Output:
                      self.numpad.cell(x_mm, y_mm), self.numpad.key_at(x_mm, y_mm))
         if self.numpad_on and fingers == 1:
             key = self.numpad.key_at(x_mm, y_mm)
-            if key:
+            if key == "numpad_toggle":
+                self._run_action(key)
+            elif key:
                 winput.send_chord(key)
             return
         action = self.cfg["tap"]["actions"].get(str(fingers), "none")
