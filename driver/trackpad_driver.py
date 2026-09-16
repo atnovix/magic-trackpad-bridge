@@ -141,7 +141,10 @@ class Driver:
         try:
             t, s = self.lines.get(timeout=0.005)
         except queue.Empty:
-            self.output.tick(time.monotonic())
+            now = time.monotonic()
+            if self.enabled:
+                self.engine.tick(now)
+            self.output.tick(now)
             return
         if s.startswith("F "):
             self.frames += 1

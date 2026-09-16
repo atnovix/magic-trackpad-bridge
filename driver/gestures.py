@@ -184,7 +184,28 @@ class GestureEngine:
             elif n in (3, 4):
                 self._swipe(n)
 
+        # Loslaten: pas na een korte respijttijd afhandelen. Bij het optillen meldt het trackpad soms één frame
+        # zonder contact en daarna hetzelfde/een nieuw contact; zonder respijt werd dat een tweede tik.
         if n == 0 and s is not None:
+            if s.get("empty_since") is None:
+                s["empty_since"] = fr.t
+            if fr.t - s["empty_since"] >= c["touch"].get("release_grace_ms", 40) / 1000.0 - 1e-6:
+                self._finish_session()
+        elif s is not None:
+            s["empty_since"] = None
+
+    def tick(self, now):
+        """Aanroepen als er even geen frames komen: rondt een losgelaten sessie af (het trackpad zwijgt na het optillen)."""
+        s = self.session
+        if s is not None and s.get("empty_since") is not None:
+            if now - s["empty_since"] >= self.cfg["touch"].get("release_grace_ms", 40) / 1000.0 - 1e-6:
+                self._finish_session()
+
+    def _finish_session(self):
+        c = self.cfg
+        s = self.session
+        if s is not None:
+            fr_t = s["empty_since"]
             self._end_mode()
             if self.btn_down == "deferred":
                 if not s.get("hold_fired"):
@@ -192,7 +213,7 @@ class GestureEngine:
                     self.emit("button", name=name, down=True)
                     self.emit("button", name=name, down=False)
                 self.btn_down = None
-            dur = fr.t - s["start"]
+            dur = fr_t - s["start"]
             if self.lenient_tap or self.numpad:
                 max_move, max_ms = c["numpad"]["tap_move_mm"], c["numpad"]["tap_time_ms"]
             else:
@@ -205,10 +226,11 @@ class GestureEngine:
                 self.last_tap = None
             elif is_tap:
                 self.emit("tap", fingers=s["max_n"], x_mm=s["x0"], y_mm=s["y0"])
-                self.last_tap = (fr.t, s["max_n"], s["x0"], s["y0"])
+                self.last_tap = (fr_t, s["max_n"], s["x0"], s["y0"])
             else:
                 self.last_tap = None
-            self.emit("session_end", fingers=s["max_n"], duration_ms=dur * 1000.0, moved_mm=s["moved"], tap=is_tap)
+            self.emit("session_end", fingers=s["max_n"], duration_ms=dur * 1000.0, moved_mm=s["moved"], tap=is_tap,
+                      hold=bool(s.get("hold_fired")))
             self.session = None
 
     # ------------------------------------------------------------------ één vinger

@@ -45,8 +45,10 @@ class Output:
         self.exe = winput.foreground_exe()
         self.profile = config.profile_for(self.cfg, self.exe)
 
-    def ev_session_end(self, fingers=0, duration_ms=0.0, moved_mm=0.0, tap=False):
+    def ev_session_end(self, fingers=0, duration_ms=0.0, moved_mm=0.0, tap=False, hold=False):
         self._release_gesture()
+        if hold:
+            self._toggle_t = time.monotonic()   # ontdendering telt vanaf het loslaten, niet vanaf het omschakelen
         if fingers == 1 and not tap and self.cfg["numpad"].get("calibrate"):
             log.info("KALIBRATIE geen tik: duur %.0f ms, verplaatsing %.1f mm (max %d ms / %.1f mm)", duration_ms, moved_mm,
                      self.cfg["numpad"]["tap_time_ms"], self.cfg["numpad"]["tap_move_mm"])

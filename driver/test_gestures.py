@@ -31,6 +31,7 @@ def run(frames):
     for btn, touches in frames:
         eng.feed(Frame(t, btn, 0, touches))
         t += 0.01
+    eng.tick(t + 0.2)
     return rec
 
 
@@ -104,7 +105,7 @@ def test_swipe4_up():
 
 
 def test_tap_drag():
-    frames = [(0, [touch(1, 60, 50)])] * 6 + [(0, [])] * 5
+    frames = [(0, [touch(1, 60, 50)])] * 6 + [(0, [])] * 10   # 100 ms los, dan opnieuw neer
     frames += [(0, [touch(1, 60 + i * 0.5, 50)]) for i in range(20)] + [(0, [])]
     rec = run(frames)
     n = rec.names()
@@ -148,6 +149,7 @@ def test_numpad_click_types_key():
     for btn in [0, 0, 1, 1, 1, 0, 0]:
         eng.feed(Frame(t, btn, 0, [touch(1, 60, 50)])); t += 0.01
     eng.feed(Frame(t, 0, 0, []))
+    eng.tick(t + 0.2)
     n = rec.names()
     assert "button" not in n and n.count("tap") == 1, n
 
@@ -161,6 +163,7 @@ def test_hold_with_physical_click_in_toggle_cell():
         eng.feed(Frame(t, 1 if i >= 2 else 0, 0, [touch(1, 124, 5)])); t += 0.01
     eng.feed(Frame(t, 0, 0, [touch(1, 124, 5)])); t += 0.01
     eng.feed(Frame(t, 0, 0, []))
+    eng.tick(t + 0.2)
     n = rec.names()
     assert "hold" in n and "button" not in n, n
 
@@ -173,9 +176,25 @@ def test_short_physical_click_in_toggle_cell_is_deferred_click():
     for btn in [0, 1, 1, 1, 0, 0]:
         eng.feed(Frame(t, btn, 0, [touch(1, 124, 5)])); t += 0.01
     eng.feed(Frame(t, 0, 0, []))
+    eng.tick(t + 0.2)
     btns = [kw for e, kw in rec.events if e == "button"]
     assert btns == [{"name": "left", "down": True}, {"name": "left", "down": False}], btns
     assert "hold" not in rec.names()
+
+
+def test_liftoff_glitch_is_one_tap():
+    # één frame zonder contact midden in een tik, daarna hetzelfde contact terug: één tik, geen twee
+    frames = [(0, [touch(1, 60, 50)])] * 5 + [(0, [])] + [(0, [touch(2, 60, 50)])] * 4 + [(0, [])]
+    rec = run(frames)
+    assert rec.names().count("tap") == 1 and rec.names().count("session_begin") == 1, rec.names()
+
+
+def test_hold_then_liftoff_glitch_no_extra_tap():
+    frames = [(0, [touch(1, 124, 5)])] * 90 + [(0, [])] + [(0, [touch(3, 124, 5)])] * 3 + [(0, [])]
+    rec = run(frames)
+    n = rec.names()
+    assert "hold" in n and "tap" not in n, n
+    assert rec.events[-1][0] == "session_end" and rec.events[-1][1]["hold"] is True
 
 
 def test_parse_line():

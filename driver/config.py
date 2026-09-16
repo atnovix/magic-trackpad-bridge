@@ -20,7 +20,8 @@ DEFAULTS = {
 
     # Aanraking: state >= touch_min_state telt als "ligt erop" (1-2 = nadering, 3 = start, 4 = vast).
     # Contacten met touch-major boven palm_major (grote vlakken) worden genegeerd.
-    "touch": {"touch_min_state": 3, "palm_major": 150, "settle_frames": 2},
+    "touch": {"touch_min_state": 3, "palm_major": 150, "settle_frames": 2,
+              "release_grace_ms": 40},   # loslaten pas na zoveel ms zonder contact afhandelen (tegen dubbele tikken)
 
     "pointer": {
         "gain_px_per_mm": 4.0,        # langzaam: pixels per mm vingerbeweging
