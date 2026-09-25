@@ -63,6 +63,19 @@ def _round_corners(win):
         pass
 
 
+def _load_logo(th, size):
+    """Atnovix-beeldmerk (assets/atnovix-light.png of -dark.png, passend bij het thema); None als het ontbreekt."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets",
+                        "atnovix-dark.png" if th["dark"] else "atnovix-light.png")
+    try:
+        from PIL import Image, ImageTk
+        img = Image.open(path).convert("RGBA").resize((size, size), Image.LANCZOS)
+        return ImageTk.PhotoImage(img)
+    except Exception:
+        log.exception("logo laden")
+        return None
+
+
 # ---------------------------------------------------------------------- widgets
 class Toggle(tk.Canvas):
     """Windows 11-schakelaar."""
@@ -283,8 +296,11 @@ class Flyout:
         v["dot"] = tk.Label(head, text="●", bg=th["bg"], fg=th["fg3"], font=f_norm)
         v["dot"].pack(side="left")
         tk.Label(head, text="Magic Trackpad", bg=th["bg"], fg=th["fg"], font=f_title).pack(side="left", padx=(int(6 * s), 0))
+        self._logo = _load_logo(th, int(22 * s))
+        if self._logo is not None:
+            tk.Label(head, image=self._logo, bg=th["bg"], bd=0).pack(side="right")
         v["battery"] = tk.Label(head, text="", bg=th["bg"], fg=th["fg2"], font=f_norm)
-        v["battery"].pack(side="right")
+        v["battery"].pack(side="right", padx=(0, int(8 * s)) if self._logo is not None else 0)
         v["status"] = tk.Label(outer, text="", bg=th["bg"], fg=th["fg2"], font=f_small, anchor="w")
         v["status"].pack(fill="x", padx=pad + int(16 * s))
 
