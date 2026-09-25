@@ -10,11 +10,17 @@ class NumpadGrid:
         self.x0, self.x1 = np["x_mm"]
         self.y0, self.y1 = np["y_mm"]
         self.rows = np["rows"]
+        # Tikken net buiten het raster (tot zover) tellen mee voor de buitenste rij/kolom: een vinger in een hoek
+        # of tegen de rand (bijv. de numpad-schakelaar rechtsboven) meldt zijn zwaartepunt soms buiten het raster.
+        self.margin = float(np.get("edge_margin_mm", 8.0))
 
     def cell(self, x_mm, y_mm):
-        """(rij, kolom) of None als de tik buiten het raster valt."""
-        if not self.rows or not (self.x0 <= x_mm <= self.x1 and self.y0 <= y_mm <= self.y1):
+        """(rij, kolom) of None als de tik buiten het raster (plus randmarge) valt."""
+        m = self.margin
+        if not self.rows or not (self.x0 - m <= x_mm <= self.x1 + m and self.y0 - m <= y_mm <= self.y1 + m):
             return None
+        x_mm = min(self.x1, max(self.x0, x_mm))
+        y_mm = min(self.y1, max(self.y0, y_mm))
         nrows = len(self.rows)
         r = min(nrows - 1, int((y_mm - self.y0) / (self.y1 - self.y0) * nrows))
         ncols = len(self.rows[r])

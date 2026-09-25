@@ -182,6 +182,31 @@ def test_short_physical_click_in_toggle_cell_is_deferred_click():
     assert "hold" not in rec.names()
 
 
+def test_hold_fires_while_finger_lies_still_without_frames():
+    # het trackpad zwijgt als de vinger stil ligt: de hold moet dan uit tick() komen, vóór het loslaten
+    rec = Rec()
+    eng = GestureEngine(config.DEFAULTS, rec)
+    t = 0.0
+    for _ in range(3):
+        eng.feed(Frame(t, 0, 0, [touch(1, 124, 5)])); t += 0.01
+    eng.tick(t + 0.3)
+    assert "hold" not in rec.names(), rec.names()
+    eng.tick(t + 0.8)
+    assert "hold" in rec.names(), rec.names()
+    eng.feed(Frame(t + 1.0, 0, 0, []))
+    eng.tick(t + 1.3)
+    n = rec.names()
+    assert n.count("hold") == 1 and "tap" not in n and n[-1] == "session_end", n
+
+
+def test_numpad_edge_margin_maps_to_outer_cell():
+    from numpad import NumpadGrid
+    g = NumpadGrid(config.DEFAULTS)
+    assert g.key_at(134, 0) == "numpad_toggle"
+    assert g.key_at(140, -10) == "numpad_toggle"      # net buiten het raster, binnen de marge
+    assert g.key_at(150, -20) is None                 # te ver buiten het raster
+
+
 def test_liftoff_glitch_is_one_tap():
     # één frame zonder contact midden in een tik, daarna hetzelfde contact terug: één tik, geen twee
     frames = [(0, [touch(1, 60, 50)])] * 5 + [(0, [])] + [(0, [touch(2, 60, 50)])] * 4 + [(0, [])]

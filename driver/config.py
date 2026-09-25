@@ -80,6 +80,7 @@ DEFAULTS = {
         "tap_time_ms": 600,           # typen op de folie gaat trager dan klikken: ruimere tikgrenzen
         "tap_move_mm": 4.0,
         "toggle_debounce_s": 1.0,     # na een omschakeling de schakelaar zo lang negeren
+        "edge_margin_mm": 8.0,        # tikken tot zover buiten het raster horen bij de buitenste rij/kolom
         "sound": True,                # korte toon bij omschakelen (hoog = numpad aan, laag = uit)
         "x_mm": [-7, 135], "y_mm": [-5, 110],   # gekalibreerd op de NUM20-folie (15-09-2026): 7 kolommen x 6 rijen
         "rows": [

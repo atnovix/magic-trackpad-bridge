@@ -83,6 +83,11 @@ class Output:
             elif key:
                 winput.send_chord(key)
             return
+        if fingers == 1 and self.numpad.key_at(x_mm, y_mm) == "numpad_toggle":
+            # ook in trackpad-modus: korte tik op de schakelaar van de folie = numpad aan (geen linkerklik).
+            # Slepen of lang vasthouden is geen tik, dus de cursor blijft daar gewoon bruikbaar.
+            self._toggle_numpad("tik")
+            return
         action = self.cfg["tap"]["actions"].get(str(fingers), "none")
         self._run_action(action)
 
@@ -90,6 +95,9 @@ class Output:
         # lang indrukken op de numpad-schakelaar van de folie zet de numpad-modus aan (of uit)
         if self.numpad.key_at(x_mm, y_mm) == "numpad_toggle":
             self._toggle_numpad("vasthouden")
+        else:
+            log.info("vasthouden op x=%.1f mm y=%.1f mm (cel %s) — niet de numpad-schakelaar",
+                     x_mm, y_mm, self.numpad.cell(x_mm, y_mm))
 
     def is_toggle_cell(self, x_mm, y_mm):
         return self.numpad.key_at(x_mm, y_mm) == "numpad_toggle"

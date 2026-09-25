@@ -13,13 +13,20 @@ Stand: dinsdag 15 september 2026, 22:00.
 - **Driver op de laptop (`driver/`, 15-09-2026):** cursor met versnelling, tik/tik-tik-slepen/fysieke klik, 2-vinger
   scrollen (natural, traagheid), pinch-zoom, draaien, 3/4-vingervegen, per-programma-profielen (Fusion 360: pannen,
   zoom, orbit), numpad-modus met kalibratie, tray-icoon met autostart. Gesture-engine is hardwareloos getest
-  (`driver/test_gestures.py`, 15 tests). In de praktijk getest: muis, Fusion-gestures en numpad werken.
+  (`driver/test_gestures.py`, 21 tests). In de praktijk getest: muis, Fusion-gestures en numpad werken.
 - **Flyout (driver/flyout.py):** linksklik op het tray-icoon opent een randloos paneel in Windows 11-stijl bij het icoon
   (thema en accentkleur uit het register, afgeronde hoeken via transparante kleur, tegels, schakelaars, schuifregelaars,
   sluit bij klik ernaast). "Meer instellingen" opent het uitgebreide venster.
 - **Statusvenster en tray (15-09-2026 avond):** menu "Meer instellingen..." opent een venster met status (poort, trackpad,
   accu, modus, frames, profiel), modusknoppen en instellingen; icoon groen/blauw/oranje/grijs per toestand. Autostart
   bij aanmelden staat aan (HKCU Run, pythonw-alias in WindowsApps). Eén exemplaar tegelijk (mutex).
+- **Numpad-schakelaar aanzetten betrouwbaar (25-09-2026):** aanzetten (lang stil op de cel rechtsboven) pakte lang niet
+  altijd, uitzetten (tik) wel. Oorzaak: het trackpad meldt alleen veranderingen, dus een stil liggende vinger levert geen
+  frames op en de hold werd alleen per frame gecontroleerd — hij vuurde pas bij het loslaten, als er al geen vinger meer
+  lag. De hold komt nu ook uit `tick()` (`GestureEngine._check_hold`), dus puur op tijd. Daarnaast telt een tik tot
+  `numpad.edge_margin_mm` (8 mm) buiten het raster mee voor de buitenste rij/kolom, en logt de driver een hold die
+  naast de schakelaar valt (positie + cel). Tests: 21. Sinds dezelfde dag zet ook een korte tik op de schakelaarcel
+  de numpad aan (zelfde gebaar als uitzetten); een tik daar is dus geen linkerklik meer, slepen/vasthouden blijft muis.
 
 ## Analyse van de fout van 6 september (v2, `tools/bridge.log`)
 
@@ -72,5 +79,8 @@ Twee losse problemen:
 - Trackpad eerst uit Windows verwijderen (Instellingen > Bluetooth en apparaten), anders blijft Windows verbinden.
 - Koppelmodus (alleen bij eerste keer of na wissen NVS): trackpad uit, knop ingedrukt houden tot het groene lampje
   knippert; de ESP32 verbindt dan zelf (geen koppelsleutel → na 3 s).
+- Het bordje (CP2102, serienummer 01DFE707) heet in Apparaatbeheer "Trackpad dongle (COM3)" in plaats van "Silicon Labs
+  CP210x USB to UART Bridge" (19-09-2026; `FriendlyName` onder `HKLM\SYSTEM\CurrentControlSet\Enum\USB\VID_10C4&PID_EA60\01DFE707`,
+  als beheerder gezet). Na een herinstallatie van de CP210x-driver moet dit opnieuw.
 - Toolchain: PlatformIO met ESP-IDF 6.0.1 (`pio run -t upload`, COM3). Let op: het openen van de seriële poort reset het bordje.
 - Logs: `tools/bridge.log` (viewer), `firmware-esp32/build.log`, `firmware-esp32/upload.log`. Deze staan in `.gitignore`.

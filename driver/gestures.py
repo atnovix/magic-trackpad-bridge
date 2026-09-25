@@ -166,17 +166,12 @@ class GestureEngine:
                 self.emit("button", name=self.btn_down, down=False)
             self.btn_down = None
 
-        # lang stil indrukken met één vinger (bijv. numpad-schakelaar op de folie)
-        if (s is not None and n == 1 and not s["fired"] and not self.drag
-                and self.btn_down in (None, "deferred")
-                and s["moved"] < c["tap"].get("hold_move_mm", 5.0)
-                and fr.t - s["start"] > c["tap"].get("hold_ms", 700) / 1000.0):
-            s["fired"] = True
-            s["hold_fired"] = True
-            self.emit("hold", x_mm=s["x0"], y_mm=s["y0"])
-
         if s is not None and n > 0:
             s["moved"] = max(s["moved"], max(t.moved for t in self.touches.values()))
+        # lang stil indrukken met één vinger (bijv. numpad-schakelaar op de folie)
+        self._check_hold(fr.t)
+
+        if s is not None and n > 0:
             if n == 1:
                 self._pointer(dt)
             elif n == 2:
@@ -194,8 +189,24 @@ class GestureEngine:
         elif s is not None:
             s["empty_since"] = None
 
+    def _check_hold(self, now):
+        """Eén vinger die lang stil ligt = 'hold'. Wordt zowel per frame als vanuit tick() gecontroleerd: een stil
+        liggende vinger levert geen frames op (het trackpad meldt alleen veranderingen), dus op frames alleen
+        vuurde de hold vaak pas bij het loslaten — en dan is n al 0."""
+        s = self.session
+        if (s is not None and s["n"] == 1 and len(self.touches) == 1 and not s["fired"] and not self.drag
+                and s.get("empty_since") is None
+                and self.btn_down in (None, "deferred")
+                and s["moved"] < self.cfg["tap"].get("hold_move_mm", 5.0)
+                and now - s["start"] > self.cfg["tap"].get("hold_ms", 700) / 1000.0):
+            s["fired"] = True
+            s["hold_fired"] = True
+            self.emit("hold", x_mm=s["x0"], y_mm=s["y0"])
+
     def tick(self, now):
-        """Aanroepen als er even geen frames komen: rondt een losgelaten sessie af (het trackpad zwijgt na het optillen)."""
+        """Aanroepen als er even geen frames komen: rondt een losgelaten sessie af (het trackpad zwijgt na het optillen)
+        en laat een stil liggende vinger alsnog een 'hold' worden."""
+        self._check_hold(now)
         s = self.session
         if s is not None and s.get("empty_since") is not None:
             if now - s["empty_since"] >= self.cfg["touch"].get("release_grace_ms", 40) / 1000.0 - 1e-6:
