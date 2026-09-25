@@ -27,6 +27,9 @@ Stand: dinsdag 15 september 2026, 22:00.
   `numpad.edge_margin_mm` (8 mm) buiten het raster mee voor de buitenste rij/kolom, en logt de driver een hold die
   naast de schakelaar valt (positie + cel). Tests: 21. Sinds dezelfde dag zet ook een korte tik op de schakelaarcel
   de numpad aan (zelfde gebaar als uitzetten); een tik daar is dus geen linkerklik meer, slepen/vasthouden blijft muis.
+- **Status "wacht op het trackpad" terwijl alles werkt (25-09-2026):** het bordje meldt `S connected` alleen op het moment
+  van verbinden. Start de driver opnieuw zonder dat het bordje reset, dan bleef het bolletje oranje. De driver zet de
+  status nu ook op verbonden zodra er F-frames binnenkomen.
 
 ## Analyse van de fout van 6 september (v2, `tools/bridge.log`)
 

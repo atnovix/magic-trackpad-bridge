@@ -147,6 +147,12 @@ class Driver:
             self.output.tick(now)
             return
         if s.startswith("F "):
+            if not self.trackpad_connected:
+                # Frames bewijzen de verbinding. Het bordje meldt 'S connected' alleen op het moment van verbinden;
+                # start de driver later (zonder reset van het bordje), dan bleef de status ten onrechte op 'wacht'.
+                self.trackpad_connected = True
+                log.info("trackpad verbonden (frames komen binnen)")
+                self._refresh_icon()
             self.frames += 1
             self._rate_n += 1
             now = time.monotonic()
