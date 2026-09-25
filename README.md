@@ -128,8 +128,8 @@ cel geraakt wordt. Pas dan `rows`, `x_mm` of `y_mm` aan.
   testcommando naar het bordje.
 - `tools/serial_tail.py [COMx] [seconden] [--reset] [--raw]` leest de seriële poort mee; `--reset` herstart het bordje
   zodat je de opstartlog ziet.
-- `driver/test_gestures.py`: de gesture-engine wordt zonder hardware getest (`python -m pytest driver` of
-  `python driver\test_gestures.py`), 21 tests.
+- `driver/test_gestures.py`: de gesture-engine wordt zonder hardware getest: `python driver\test_gestures.py`
+  (21 tests, ook geschikt voor pytest).
 
 Let op: het openen van de seriële poort reset het bordje.
 
